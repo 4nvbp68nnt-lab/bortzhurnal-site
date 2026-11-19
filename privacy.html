@@ -357,12 +357,11 @@ footer nav a{color:var(--ink);text-decoration:none;font-weight:600}
   <p>Всё, что вы вводите в приложение — автомобили, VIN, пробег, записи, фото, чеки, — хранится только в памяти вашего устройства. Эти данные не передаются нам и третьим лицам. Сервера с данными пользователей у приложения нет.</p>
   <h2>Что мы получаем при покупке Pro</h2>
   <ul>
-    <li>Адрес почты — чтобы отправить ключ активации и ответить на вопросы.</li>
-    <li>VIN — чтобы выпустить ключ для вашей машины.</li>
+    <li>Адрес почты — чтобы отправить чек и ключ активации, восстановить ключ по запросу и ответить на вопросы. Больше ничего мы не спрашиваем.</li>
   </ul>
   <p>Данные банковской карты вводятся на странице платёжного сервиса <span class="todo">название сервиса</span> и нам не передаются.</p>
   <h2>Как долго храним</h2>
-  <p>Почту и VIN — <span class="todo">3 года</span> с момента покупки, чтобы восстановить ключ по запросу. Удалить их можно в любой момент, написав на <a data-mail href="#">почту</a>.</p>
+  <p>Почту — <span class="todo">3 года</span> с момента покупки, чтобы восстановить ключ по запросу. Удалить их можно в любой момент, написав на <a data-mail href="#">почту</a>.</p>
   <h2>Оператор</h2>
   <p><span class="todo" data-cfg="seller">ФИО</span>, ИНН <span class="todo" data-cfg="inn">ИНН</span>.</p>
 </article></main>
@@ -381,7 +380,7 @@ const SITE = {
   price: 690,                      // цена Pro, ₽
   email: 'pro@example.ru',         // почта для ключей и вопросов — замените на свою
   payUrl: '',                      // ссылка на оплату от ЮKassa / Robokassa. Пусто — оплата ещё не подключена.
-                                   // В ссылке можно использовать {vin}, {email}, {price} — подставятся из формы.
+                                   // В ссылке можно использовать {email}, {price} — подставятся из формы.
   seller: 'ФИО самозанятого',      // для оферты
   inn: 'ИНН',                      // для оферты
 };
@@ -460,23 +459,20 @@ const SITE = {
 
   /* ---- страница покупки ---- */
   const form = $('#buyForm'); if (!form) return;
-  const vin = $('#vin'), mail = $('#mail'), out = $('#buyMsg');
-  try { const q = new URLSearchParams(location.search).get('vin'); if (q) vin.value = q.toUpperCase(); } catch (e) {}
-  const cleanVin = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const vinErr = v => v.length !== 17 ? 'В VIN 17 символов, а вы ввели ' + v.length + '.' : /[IOQ]/.test(v) ? 'В VIN не бывает букв I, O и Q. Скорее всего, это цифры 1 и 0.' : '';
-  vin.addEventListener('input', () => { const p = vin.selectionStart; vin.value = vin.value.toUpperCase(); try { vin.setSelectionRange(p, p); } catch (e) {} $('#vinErr').textContent = ''; });
+  const mail = $('#mail'), out = $('#buyMsg');
+  mail.addEventListener('input', () => { $('#mailErr').textContent = ''; });
   form.addEventListener('submit', e => {
     e.preventDefault();
-    const v = cleanVin(vin.value), m = mail.value.trim(), ve = vinErr(v);
-    $('#vinErr').textContent = ve; $('#mailErr').textContent = /^\S+@\S+\.\S+$/.test(m) ? '' : 'Укажите почту, на неё придёт ключ.';
-    if (ve || $('#mailErr').textContent) return;
+    const m = mail.value.trim().toLowerCase();
+    $('#mailErr').textContent = /^\S+@\S+\.\S+$/.test(m) ? '' : 'Укажите почту, на неё придут чек и ключ.';
+    if ($('#mailErr').textContent) return;
     if (SITE.payUrl) {
-      location.href = SITE.payUrl.replace('{vin}', encodeURIComponent(v)).replace('{email}', encodeURIComponent(m)).replace('{price}', SITE.price);
+      location.href = SITE.payUrl.replace('{email}', encodeURIComponent(m)).replace('{price}', SITE.price);
       return;
     }
-    const text = `Бортжурнал Pro\nVIN: ${v}\nПочта: ${m}`;
+    const text = `Бортжурнал Pro\nПочта: ${m}`;
     out.hidden = false;
-    out.innerHTML = `<b>Оплата на сайте пока не подключена.</b><span>Напишите на <a href="mailto:${SITE.email}">${SITE.email}</a>, и мы пришлём ссылку на оплату, а после оплаты ключ для вашего VIN.</span><div class="copyline"><code id="req"></code><button type="button" class="btn ghost sm" id="copyReq">Скопировать</button></div>`;
+    out.innerHTML = `<b>Оплата на сайте пока не подключена.</b><span>Напишите на <a href="mailto:${SITE.email}">${SITE.email}</a>, и мы пришлём ссылку на оплату, а после оплаты ключ.</span><div class="copyline"><code id="req"></code><button type="button" class="btn ghost sm" id="copyReq">Скопировать</button></div>`;
     $('#req').textContent = text.replace(/\n/g, ' · ');
     $('#copyReq').onclick = () => { navigator.clipboard.writeText(text).then(() => { $('#copyReq').textContent = 'Скопировано'; }).catch(() => { const r = document.createRange(); r.selectNodeContents($('#req')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }); };
   });

@@ -1483,14 +1483,18 @@ const TRIAL_DAYS = 14, PRO_PRICE = 690;
 const PRO_PUB = {"kty":"EC","x":"56XKPnkw8Mk74dTTRvMz0M_VGBagJY39dPqEMF9ukF8","y":"G0atgDvZUAZR0tdPD3WBh_FP3E37pV-VJPCZR3ttHBE","crv":"P-256"};
 const LOCKED = ['to','parts','shop','remind','kb','issues'];
 function trialLeft(){ const t = ST.meta.trialStart; if (!t) return TRIAL_DAYS; return Math.max(0, TRIAL_DAYS - Math.floor((Date.now() - new Date(t).getTime()) / 864e5)); }
-function proPaid(c){ c = c || car(); return !!(c && c.pro && c.pro.vin && c.pro.vin === String(c.vin||'').toUpperCase()); }
+function proPaid(){ return !!(ST.meta.pro && ST.meta.pro.email); }   // Pro на владельца: все машины в приложении
 function isPro(c){ const pv = ST.meta.preview; if (pv==='free') return false; if (pv==='pro') return true; return proPaid(c) || trialLeft() > 0; }
 function proState(c){ const pv = ST.meta.preview; if (pv==='free') return 'free'; return proPaid(c) ? 'paid' : (pv==='pro' || trialLeft() > 0) ? 'trial' : 'free'; }
-async function verifyKey(vin, key){
+// Ключ Pro: «PRO-» + base64url(6 байт номера покупки + 64 байта подписи ECDSA над «vagjournal-pro:2:почта:номер»).
+// Каждая покупка — свой ключ, и подходит он только к почте, на которую куплен.
+const normMail = m => String(m||'').trim().toLowerCase();
+async function verifyKey(email, key){
   try { const k = String(key||'').replace(/\s+/g,'').replace(/^PRO-/i,''); const b = atob(k.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((k.length+3)%4));
-    const sig = Uint8Array.from(b, ch => ch.charCodeAt(0)); if (sig.length !== 64) return false;
+    const raw = Uint8Array.from(b, ch => ch.charCodeAt(0)); if (raw.length !== 70) return false;
+    const nonce = raw.slice(0, 6), sig = raw.slice(6), n64 = btoa(String.fromCharCode(...nonce)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const pk = await crypto.subtle.importKey('jwk', PRO_PUB, { name:'ECDSA', namedCurve:'P-256' }, false, ['verify']);
-    return await crypto.subtle.verify({ name:'ECDSA', hash:'SHA-256' }, pk, sig, new TextEncoder().encode('vagjournal-pro:1:' + vin)); } catch(e) { return false; } }
+    return await crypto.subtle.verify({ name:'ECDSA', hash:'SHA-256' }, pk, sig, new TextEncoder().encode('vagjournal-pro:2:' + normMail(email) + ':' + n64)) ? n64 : false; } catch(e) { return false; } }
 const notInstalled = () => !!window.__SB && !(navigator.standalone || matchMedia('(display-mode: standalone)').matches);
 function newCar(cfg){ return { id:uid(), name:'', cfg, year:'', vin:'', mileage:0, mileageDate:'', svc:{}, svcOv:{}, svcHidden:[], customSvc:[], iss:{}, customIss:[], partSt:{}, partOv:{}, customParts:[], log:[], fuel:[], docs:defaultDocs(), codes:[] }; }
 function defaultDocs(){ return [
@@ -1973,7 +1977,7 @@ function vLocked(p){ const d = kbData(), c = car(), e = KB.E[c.cfg.engine], code
     ${info[2].length ? `<div class="teaser">${info[2].map(([a,b]) => `<div><span>${esc(a)}</span>${mask(b)}</div>`).join('')}</div>` : ''}
     <button class="btn big pri" data-go="pro">Открыть Pro</button></div>`; }
 function vPro(){ const c = car(), st = proState(c), d = kbData(), left = trialLeft(), pv = ST.meta.preview || 'auto';
-  const status = st==='paid' ? `<div class="hint ok">Pro активен для этой машины (VIN ${esc(c.pro.vin)}).</div>`
+  const status = st==='paid' ? `<div class="hint ok">Pro активен для всех ваших машин (${esc(ST.meta.pro.email)}).</div>`
     : st==='trial' ? `<div class="info"><span>${pv==='pro' ? 'Предпросмотр Pro.' : `Пробный период: осталось <b>${pl(left,'день','дня','дней')}</b>.`} Сейчас открыто всё. После окончания журнал и записи останутся, закроются только функции Pro.</span></div>`
     : `<div class="backup"><span>Бесплатная версия. Данные хранятся только на этом телефоне, резервной копии нет.</span></div>`;
   const feats = [
@@ -1989,7 +1993,7 @@ function vPro(){ const c = car(), st = proState(c), d = kbData(), left = trialLe
   return `${status}
     <article class="card procard"><div class="title">Что даёт Pro для ${esc(carTitle())}</div>
       <div class="feats">${feats.map(([k,t,n]) => `<div class="featrow"><span class="ti">${icon(k)}</span><b>${esc(t)}</b><small>${esc(n)}</small></div>`).join('')}</div>
-      ${st==='paid' ? '' : `<div class="pricebox"><div><div class="price">${PRO_PRICE} ₽</div><div class="meta">один раз, для этой машины, навсегда</div></div></div>
+      ${st==='paid' ? '' : `<div class="pricebox"><div><div class="price">${PRO_PRICE} ₽</div><div class="meta">один раз, для всех ваших машин, навсегда</div></div></div>
       <div class="actions"><button class="btn big pri" data-act="proBuy">Купить Pro</button><button class="btn big" data-act="proKey">Ввести ключ</button></div>`}</article>
     <article class="card"><div class="title">Бесплатно всегда</div><div class="meta">Журнал работ, расходы, заправки, документы и сроки, ошибки и кодировки, загрузка ранее сохранённой копии.</div></article>
     <article class="card dev"><div class="title">Предпросмотр</div><div class="meta">Временный переключатель, чтобы посмотреть обе версии. Перед запуском уберём.</div>
@@ -2324,12 +2328,15 @@ const acts = {
   kbtab(el){ ui.kbTab = el.dataset.k; ui.kbQuery = ''; animate = true; render(); },
   kbopen(el){ kbSheet(el.dataset.t, el.dataset.id); },
   exportData(){ if (!isPro()) { go('pro'); return; } exportData(); },
-  proBuy(){ if (window.__SITE) { const c = car(), v = String(c.vin||'').toUpperCase(); const url = window.__SITE + 'pro.html' + (v.length===17 ? '?vin=' + encodeURIComponent(v) : ''); const w = window.open(url, '_blank'); if (!w) location.href = url; return; }
-    confirmSheet('Покупка Pro', 'Оплата на сайте появится к запуску. Сейчас Pro активируется ключом, который приходит после оплаты: он привязан к VIN вашей машины.', 'Ввести ключ', () => acts.proKey()); },
-  proKey(){ const c = car();
-    sheet('Ключ Pro', [{name:'vin',label:'VIN машины',value:c.vin||'',ph:'17 символов'},{name:'key',label:'Ключ',type:'textarea',ph:'PRO-…'}], d => {
-      const vin = String(d.vin||'').toUpperCase().replace(/[^A-Z0-9]/g,''); if (vin.length!==17) { toast('VIN должен быть из 17 символов'); return false; }
-      verifyKey(vin, d.key).then(ok => { if (!ok) { toast('Ключ не подходит к этому VIN'); return; } c.vin = vin; c.pro = { vin, key:String(d.key).trim(), date:today() }; save(); render(); toast('Pro активирован для этой машины'); }); }); },
+  proBuy(){ if (window.__SITE) { const url = window.__SITE + 'pro.html'; const w = window.open(url, '_blank'); if (!w) location.href = url; return; }
+    confirmSheet('Покупка Pro', 'Оплата на сайте появится к запуску. Сейчас Pro активируется ключом, который приходит на почту после оплаты.', 'Ввести ключ', () => acts.proKey()); },
+  proKey(){
+    sheet('Ключ Pro', [{name:'email',label:'Почта, на которую куплен Pro',value:(ST.meta.pro&&ST.meta.pro.email)||'',ph:'name@mail.ru'},{name:'key',label:'Ключ из письма',type:'textarea',ph:'PRO-…'}], d => {
+      const email = normMail(d.email); if (!/^\S+@\S+\.\S+$/.test(email)) { toast('Укажите почту, на которую пришёл ключ'); return false; }
+      if (!String(d.key||'').trim()) { toast('Вставьте ключ из письма'); return false; }
+      verifyKey(email, d.key).then(n => { if (!n) { toast('Ключ не подходит к этой почте. Проверьте, что почта та же, что при покупке'); return; }
+        ST.meta.pro = { email, key:String(d.key).replace(/\s+/g,''), id:n, date:today() }; save(); render(); toast('Pro активирован для всех ваших машин'); }); });
+    const em = document.getElementById('f_email'); if (em) { em.type = 'email'; em.setAttribute('inputmode','email'); em.setAttribute('autocomplete','email'); em.setAttribute('autocapitalize','off'); } },
   proPreview(el){ const k = el.dataset.k; if (k==='auto') delete ST.meta.preview; else ST.meta.preview = k; cache.key = ''; save(); render(); },
   importData(){ const i = $('#importInput'); i.value=''; i.click(); },
   addCar(){ startSetup(); },
