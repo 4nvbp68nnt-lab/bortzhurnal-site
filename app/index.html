@@ -546,6 +546,19 @@ html:root:not(.__) .subhead{background:var(--bg)}
 .gate .gcode .btn{flex:none;width:auto;padding-inline:20px}
 .gate .gerr{color:var(--bad);font-size:14px;margin:4px 0 0}
 
+/* ---------- поля форм на iPhone: дата не вылезает из колонки, всё одной высоты ---------- */
+.two{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.field{min-width:0}
+.field input,.field select{height:48px;min-width:0;max-width:100%;box-sizing:border-box}
+.field input[type=date],.field input[type=time]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;text-align:left;line-height:normal;padding-top:0;padding-bottom:0}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
+.field input[type=date]::-webkit-datetime-edit{padding:0}
+.fueltotal{line-height:48px}
+/* колесо литров: крутится по всей ширине */
+.wheels{justify-content:stretch}
+.wheel{flex:1 1 auto;width:auto;touch-action:pan-y}
+.wunit{position:absolute;top:50%;left:calc(50% + 34px);transform:translateY(-50%);pointer-events:none;z-index:2}
+
 </style>
 </head>
 <body>
