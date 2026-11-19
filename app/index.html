@@ -558,6 +558,9 @@ html:root:not(.__) .subhead{background:var(--bg)}
 .wheels{justify-content:stretch}
 .wheel{flex:1 1 auto;width:auto;touch-action:pan-y}
 .wunit{position:absolute;top:50%;left:calc(50% + 34px);transform:translateY(-50%);pointer-events:none;z-index:2}
+/* дата на iPhone: текст по центру по вертикали */
+.field input[type=date],.field input[type=time]{line-height:46px}
+.field input[type=date]::-webkit-date-and-time-value{line-height:46px;height:46px;display:block}
 
 </style>
 </head>
