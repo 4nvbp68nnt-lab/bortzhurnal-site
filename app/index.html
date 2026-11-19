@@ -2427,8 +2427,8 @@ async function checkAccess(code){
 }
 function renderClosed(){
   document.body.classList.add('gated');
-  $('#view').innerHTML = `<div class="gate"><img class="gicon" src="icon-180.png" alt="" width="84" height="84"><h1>Бортжурнал скоро откроется</h1>
-    <p class="glead">Сейчас приложение доступно только по приглашениям. Если вам дали код, введите его.</p>
+  $('#view').innerHTML = `<div class="gate"><img class="gicon" src="icon-180.png" alt="" width="84" height="84"><h1>Введите код приглашения</h1>
+    <p class="glead">Сейчас Бортжурнал открыт только по приглашениям. Код вводится один раз, дальше приложение открывается само.</p>
     <form class="gcode" id="gcode" autocomplete="off"><input id="gcodeIn" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="Код приглашения" aria-label="Код приглашения">
     <button class="btn big pri" type="submit">Открыть</button></form><p class="gerr" id="gerr" hidden></p>
     ${window.__SITE ? `<a class="glink" href="${window.__SITE}" target="_blank" rel="noopener">Что умеет приложение ›</a>` : ''}</div>`;
@@ -2471,11 +2471,12 @@ async function init(){
   ST.cars.forEach(c => { c.docs = (c.docs||[]).filter(d => !(['d_aid','d_ext'].includes(d.id) && !d.until)); });
   if (!ST.meta.trialStart) { ST.meta.trialStart = new Date().toISOString(); save(); }
   applyTheme();
+  // сначала установка на телефон, код приглашения спрашиваем уже в установленном приложении
+  if (notInstalled()) { renderGate(); return; }
   if (!(await checkAccess())) { renderClosed(); return; }
   start();
 }
 function start(){
-  if (notInstalled()) { renderGate(); return; }
   const h = location.hash.slice(1); if (PAGES[h] && ST.cars.length) page = h;
   render();
 }
